@@ -1,0 +1,21 @@
+{
+  "name": "hidden-textarea-editor",
+  "version": "1.0.0",
+  "description": "A dependency-free block content editor that synchronizes with a hidden textarea.",
+  "main": "src/rich-text-editor.js",
+  "style": "src/rich-text-editor.css",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "check": "node --check src/rich-text-editor.js"
+  },
+  "keywords": [
+    "wysiwyg",
+    "editor",
+    "textarea",
+    "rich-text",
+    "block-editor"
+  ],
+  "license": "MIT"
+}
