@@ -4,7 +4,7 @@
   const TYPES = [
     ["paragraph", "¶", "Paragraph"], ["h2", "H", "Heading H1–H6"],
     ["list", "☷", "List"],
-    ["quote", "❝", "Quote"], ["image", "▧", "Image"],
+    ["quote", "❝", "Quote"], ["image", "▧", "Image"], ["imageSet", "▦", "Image set"],
     ["delimiter", "•••", "Delimiter"], ["video", "▶", "YouTube / Vimeo"],
     ["embed", "</>", "Embed"]
   ];
@@ -142,6 +142,9 @@
         const image = source.querySelector("img");
         const caption = source.querySelector("figcaption")?.innerHTML || "";
         body.innerHTML = image ? this.imageMarkup(image.src, caption) : this.urlCard("Image URL", "Paste an image URL", "image");
+      } else if (type === "imageSet") {
+        const images = [...source.querySelectorAll("img")].map(image => image.src).filter(Boolean);
+        body.innerHTML = images.length ? this.imageSetMarkup(images) : this.imageSetInput();
       } else if (type === "delimiter") {
         body.innerHTML = '<div class="be__delimiter" role="separator"><span>•</span><span>•</span><span>•</span></div>';
       } else {
@@ -176,6 +179,10 @@
       if (block.type === "image") {
         const url = data.file?.url || data.url || "";
         return url ? `<figure><img src="${this.escape(url)}"><figcaption>${data.caption || ""}</figcaption></figure>` : "";
+      }
+      if (block.type === "imageSet") {
+        const images = (data.images || data.files || []).map(item => typeof item === "string" ? item : item.url || item.file?.url).filter(Boolean);
+        return images.length ? `<div class="be__image-set">${images.map(url => `<img src="${this.escape(url)}">`).join("")}</div>` : "";
       }
       if (block.type === "delimiter") return "<hr>";
       if (block.type === "video" || block.type === "embed") {
@@ -250,9 +257,11 @@
           if (this.safeUrl(url)) document.execCommand("createLink", false, url);
         }
         if (event.target.matches("[data-load-url]")) this.loadUrl(block, event.target.dataset.loadUrl);
+        if (event.target.matches("[data-load-image-set]")) this.loadImageSetUrls(block);
       });
       block.addEventListener("change", (event) => {
         if (event.target.matches("[data-image-file]")) this.uploadImage(block, event.target.files[0]);
+        if (event.target.matches("[data-image-set-files]")) this.uploadImageSet(block, [...event.target.files]);
         if (event.target.matches("[data-block-level]")) {
           const oldText = block.querySelector(".be__text");
           const heading = document.createElement(`h${event.target.value}`);
@@ -396,6 +405,46 @@
       }
     }
 
+    async uploadImageSet(block, files) {
+      if (!files.length) return;
+      if (!this.options.imageUploadUrl) return this.showUploadError(block, "Set imageUploadUrl when creating the editor.");
+      if (files.some(file => !file.type.startsWith("image/"))) return this.showUploadError(block, "Please choose image files only.");
+      const button = block.querySelector(".be__upload-button");
+      if (button) button.textContent = "Uploading…";
+      try {
+        const urls = [];
+        for (const file of files) {
+          const data = new FormData();
+          data.append(this.options.imageFieldName, file);
+          const response = await fetch(this.options.imageUploadUrl, { method: "POST", headers: this.options.uploadHeaders, body: data });
+          if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+          const result = await response.json();
+          const url = result.url || result.imageUrl || result.location || result.data?.url || result.file?.url;
+          const absoluteUrl = url ? new URL(url, global.location.href).href : "";
+          if (!absoluteUrl || !this.safeUrl(absoluteUrl)) throw new Error("Upload response did not contain a valid image URL.");
+          urls.push(absoluteUrl);
+        }
+        block.querySelector(".be__body").innerHTML = this.imageSetMarkup(urls);
+        this.sync();
+      } catch (error) {
+        this.showUploadError(block, error.message || "Image upload failed.");
+        if (button) button.textContent = "Upload images";
+      }
+    }
+
+    loadImageSetUrls(block) {
+      const input = block.querySelector("[data-image-set-urls]");
+      const urls = (input?.value || "").split(/[\n,]+/).map(url => url.trim()).filter(Boolean);
+      if (!urls.length || urls.some(url => !this.safeUrl(url))) {
+        input?.setCustomValidity("Enter valid http(s) image URLs, one per line.");
+        input?.reportValidity();
+        return;
+      }
+      input.setCustomValidity("");
+      block.querySelector(".be__body").innerHTML = this.imageSetMarkup(urls);
+      this.sync();
+    }
+
     showUploadError(block, message) {
       const output = block.querySelector(".be__upload-error");
       if (output) output.textContent = message;
@@ -415,6 +464,12 @@
     }
     imageMarkup(url, caption) {
       return `<figure class="be__media"><img src="${this.escape(url)}" alt=""><figcaption contenteditable="true" data-placeholder="Add a caption">${caption}</figcaption></figure>`;
+    }
+    imageSetInput() {
+      return `<div class="be__url be__image-input"><span>Add an image set</span><label class="be__upload-button">Upload images<input type="file" accept="image/*" multiple data-image-set-files></label><em>or paste image URLs, one per line</em><textarea data-image-set-urls placeholder="https://example.com/one.jpg\nhttps://example.com/two.jpg"></textarea><button class="be__set-add" type="button" data-load-image-set>Add image set</button><small class="be__upload-error" role="alert"></small></div>`;
+    }
+    imageSetMarkup(urls) {
+      return `<div class="be__image-set">${urls.map(url => `<figure><img src="${this.escape(url)}" alt=""></figure>`).join("")}</div>`;
     }
     frameMarkup(url, type) {
       return `<div class="be__embed"><iframe src="${this.escape(url)}" loading="lazy" allowfullscreen></iframe><small>${type === "video" ? "Video" : "Embedded content"}</small></div>`;
@@ -436,6 +491,7 @@
         const img = block.querySelector("img");
         return { id: block.dataset.id, type: "image", data: { file: { url: img?.src || "" }, caption: block.querySelector("figcaption")?.innerHTML || "", withBorder: false, stretched: false, withBackground: false } };
       }
+      if (type === "imageSet") return { id: block.dataset.id, type: "imageSet", data: { images: [...block.querySelectorAll(".be__image-set img")].map(image => ({ url: image.src })) } };
       if (type === "delimiter") return { id: block.dataset.id, type: "delimiter", data: {} };
       const iframe = block.querySelector("iframe");
       const source = iframe?.src || "";
