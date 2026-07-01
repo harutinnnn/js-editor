@@ -18,15 +18,16 @@
 .be__block--dragging { background:#eff6ff; border-color:#93c5fd; box-shadow:0 8px 24px #1e3a8a18; opacity:.55; }
 .be__body { min-width:0; position:relative; }
 .be__text { line-height:1.7; margin:0; min-height:28px; outline:0; overflow-wrap:anywhere; }
-h2.be__text { font-size:29px; line-height:1.25; margin:4px 0; } h3.be__text { font-size:22px; line-height:1.35; margin:4px 0; }
+h1.be__text{font-size:36px}h2.be__text{font-size:29px}h3.be__text{font-size:24px}h4.be__text{font-size:20px}h5.be__text{font-size:17px}h6.be__text{font-size:14px;text-transform:uppercase}.be__text:is(h1,h2,h3,h4,h5,h6){line-height:1.25;margin:4px 0}
 blockquote.be__text { border-left:3px solid var(--accent); color:#475569; padding-left:16px; }
 .be__text:empty::before,[contenteditable]:empty::before { color:#9aa5b5; content:attr(data-placeholder); pointer-events:none; }
 .be__list { margin:0; padding-left:24px; }
 .be__inlinebar { background:#172033; border-radius:7px; box-shadow:0 6px 24px #0f172a30; display:none; left:0; padding:4px; position:absolute; top:-42px; z-index:4; }
-.be__body:focus-within .be__inlinebar { display:flex; }
+.be__body:focus-within .be__inlinebar,.be__inlinebar.be__inlinebar--locked { display:flex; }
 .be__inlinebar button,.be__inlinebar select { background:transparent; border:0; border-radius:4px; color:#fff; cursor:pointer; height:29px; padding:0 9px; }
 .be__inlinebar button:hover,.be__inlinebar select:hover { background:#334155; }
 .be__inlinebar select option { color:#172033; }
+.be__color { align-items:center; border-radius:4px; color:#fff; cursor:pointer; display:flex; font-weight:700; height:29px; justify-content:center; position:relative; text-decoration:underline; text-decoration-color:#60a5fa; width:30px; }.be__color input{bottom:0;height:1px;opacity:0;position:absolute;width:1px}.be__highlight{background:#fde68a;color:#172033;text-decoration:none}
 .be__add { align-items:center; background:#fff; border:1px dashed #cbd5e1; border-radius:8px; color:var(--muted); cursor:pointer; display:flex; gap:8px; margin:0 auto 30px; padding:9px 15px; }
 .be__add:hover { border-color:var(--accent); color:var(--accent); }
 .be__menu { background:#fff; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 14px 35px #0f172a25; padding:12px; position:fixed; width:280px; z-index:10000; }
@@ -47,6 +48,8 @@ blockquote.be__text { border-left:3px solid var(--accent); color:#475569; paddin
 .be__upload-error { color:#dc2626; display:block; margin-top:8px; }
 .be__media { margin:0; }.be__media img { border-radius:7px; display:block; height:auto; max-width:100%; }.be__media figcaption { color:var(--muted); font-size:13px; margin-top:7px; outline:0; text-align:center; }
 .be__embed iframe { aspect-ratio:16/9; border:0; border-radius:7px; display:block; width:100%; }.be__embed small { color:var(--muted); display:block; margin-top:5px; }
+.be__delimiter { align-items:center; color:#94a3b8; display:flex; gap:15px; justify-content:center; min-height:48px; }.be__delimiter span { font-size:20px; }
+.be__quote-mark { color:var(--accent); float:left; font-family:Georgia,serif; font-size:48px; height:42px; line-height:1; margin-right:10px; }.be__quote-text { border:0!important; color:#334155!important; font-family:Georgia,serif; font-size:21px; font-style:italic; min-height:34px; padding:0!important; }.be__quote-text:not(:empty)::after { color:var(--accent); content:"”"; font-family:Georgia,serif; font-size:48px; font-style:normal; line-height:0; margin-left:5px; vertical-align:-10px; }.be__quote-caption { color:#64748b; display:block; font-size:13px; margin:8px 0 0 42px; min-height:20px; outline:0; }.be__quote-caption:empty::before{color:#a3adba;content:attr(data-placeholder)}.be__quote-align{border:1px solid var(--line);border-radius:4px;color:#64748b;font-size:12px;margin:7px 0 0 42px;padding:3px}
 .be__data-error { background:#fff7ed; border:1px solid #fdba74; border-radius:8px; color:#9a3412; padding:18px; }
 .be__data-error strong { display:block; margin-bottom:6px; }.be__data-error p { font-family:ui-monospace,monospace; font-size:12px; margin:0 0 8px; }.be__data-error small { color:#7c2d12; }
 @media(max-width:800px){.be__canvas{padding:28px 18px}.be__block{grid-template-columns:28px 1fr;margin:3px 0}.be__actions{display:none}.be__rail{opacity:1}}

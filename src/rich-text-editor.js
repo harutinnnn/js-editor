@@ -2,10 +2,11 @@
   "use strict";
 
   const TYPES = [
-    ["paragraph", "¶", "Paragraph"], ["h2", "H2", "Heading"],
-    ["h3", "H3", "Subheading"], ["list", "☷", "List"],
+    ["paragraph", "¶", "Paragraph"], ["h2", "H", "Heading H1–H6"],
+    ["list", "☷", "List"],
     ["quote", "❝", "Quote"], ["image", "▧", "Image"],
-    ["video", "▶", "YouTube / Vimeo"], ["embed", "</>", "Embed"]
+    ["delimiter", "•••", "Delimiter"], ["video", "▶", "YouTube / Vimeo"],
+    ["embed", "</>", "Embed"]
   ];
 
   class RichTextEditor {
@@ -76,6 +77,7 @@
         if (/^H[1-3]$/.test(node.tagName)) type = node.tagName === "H3" ? "h3" : "h2";
         else if (["UL", "OL"].includes(node.tagName)) type = "list";
         else if (node.tagName === "BLOCKQUOTE") type = "quote";
+        else if (node.tagName === "HR") type = "delimiter";
         else if (node.tagName === "FIGURE" && node.querySelector("img")) type = "image";
         else if (node.tagName === "IFRAME" || node.querySelector("iframe")) type = "video";
         this.addBlock(type, node.outerHTML, false, null, null, false);
@@ -114,13 +116,23 @@
       const source = document.createElement("div");
       source.innerHTML = value || "";
       const text = source.firstElementChild?.innerHTML || value || "";
-      if (["paragraph", "h2", "h3", "quote"].includes(type)) {
+      if (type === "quote") {
+        const quote = source.querySelector("blockquote");
+        const caption = quote?.querySelector("cite")?.innerHTML || "";
+        const alignment = quote?.dataset.alignment === "center" ? "center" : "left";
+        quote?.querySelector("cite")?.remove();
+        body.innerHTML = `<div class="be__quote-mark">“</div><blockquote class="be__text be__quote-text" contenteditable="true" data-placeholder="Enter a quote">${quote?.innerHTML || value || ""}</blockquote><cite class="be__quote-caption" contenteditable="true" data-placeholder="Quote author or source">${caption}</cite><select class="be__quote-align" aria-label="Quote alignment"><option value="left">Left</option><option value="center">Center</option></select>`;
+        body.querySelector(".be__quote-align").value = alignment;
+      } else if (["paragraph", "h1", "h2", "h3", "h4", "h5", "h6"].includes(type)) {
         const tag = type === "paragraph" ? "div" : type;
         body.innerHTML = `<div class="be__inlinebar">
+          ${type !== "paragraph" ? `<select data-block-level aria-label="Heading level">${[1,2,3,4,5,6].map(level => `<option value="${level}"${type === `h${level}` ? " selected" : ""}>H${level}</option>`).join("")}</select>` : ""}
           <button type="button" data-command="bold"><b>B</b></button>
           <button type="button" data-command="italic"><i>I</i></button>
           <button type="button" data-command="underline"><u>U</u></button>
           <select data-command="fontSize" aria-label="Font size"><option value="">Size</option><option value="2">Small</option><option value="3">Normal</option><option value="5">Large</option></select>
+          <label class="be__color" title="Text color">A<input type="color" data-command="foreColor" value="#172033"></label>
+          <label class="be__color be__highlight" title="Highlight color">A<input type="color" data-command="hiliteColor" value="#fff3a3"></label>
           <button type="button" data-link>Link</button>
         </div><${tag} class="be__text" contenteditable="true" data-placeholder="${this.escape(this.options.placeholder)}">${text}</${tag}>`;
       } else if (type === "list") {
@@ -130,6 +142,8 @@
         const image = source.querySelector("img");
         const caption = source.querySelector("figcaption")?.innerHTML || "";
         body.innerHTML = image ? this.imageMarkup(image.src, caption) : this.urlCard("Image URL", "Paste an image URL", "image");
+      } else if (type === "delimiter") {
+        body.innerHTML = '<div class="be__delimiter" role="separator"><span>•</span><span>•</span><span>•</span></div>';
       } else {
         const frame = source.querySelector("iframe");
         body.innerHTML = frame ? this.frameMarkup(frame.src, type) : this.urlCard(type === "video" ? "Video URL" : "Embed URL", "Paste URL here", type);
@@ -153,7 +167,7 @@
       const data = block.data || {};
       if (block.type === "paragraph") return `<p>${this.sanitizeInline(data.text || "")}</p>`;
       if (block.type === "header") return `<h${data.level || 2}>${this.sanitizeInline(data.text || "")}</h${data.level || 2}>`;
-      if (block.type === "quote") return `<blockquote>${this.sanitizeInline(data.text || "")}</blockquote>`;
+      if (block.type === "quote") return `<blockquote data-alignment="${data.alignment === "center" ? "center" : "left"}">${this.sanitizeInline(data.text || "")}<cite>${this.sanitizeInline(data.caption || "")}</cite></blockquote>`;
       if (block.type === "list") {
         const tag = data.style === "ordered" ? "ol" : "ul";
         const items = (data.items || []).map(item => `<li>${this.sanitizeInline(typeof item === "string" ? item : item.content || "")}</li>`).join("");
@@ -163,6 +177,7 @@
         const url = data.file?.url || data.url || "";
         return url ? `<figure><img src="${this.escape(url)}"><figcaption>${data.caption || ""}</figcaption></figure>` : "";
       }
+      if (block.type === "delimiter") return "<hr>";
       if (block.type === "video" || block.type === "embed") {
         const url = data.embed || data.source || data.url || "";
         return url ? `<div><iframe src="${this.escape(url)}"></iframe></div>` : "";
@@ -201,8 +216,18 @@
         this.sync();
       });
       block.addEventListener("mousedown", (event) => {
+        if (event.target.closest(".be__color")) {
+          this.rememberSelection();
+          block.querySelector(".be__inlinebar")?.classList.add("be__inlinebar--locked");
+        } else if (!event.target.closest(".be__inlinebar")) {
+          block.querySelector(".be__inlinebar")?.classList.remove("be__inlinebar--locked");
+        }
         if (event.target.closest(".be__inlinebar button")) event.preventDefault();
       });
+      block.addEventListener("mouseup", (event) => {
+        if (!event.target.closest(".be__color")) this.rememberSelection();
+      });
+      block.addEventListener("keyup", () => this.rememberSelection());
       block.addEventListener("click", (event) => {
         const action = event.target.closest("[data-action]")?.dataset.action;
         if (action === "menu") this.openMenu(event.target, block);
@@ -215,7 +240,7 @@
         if (action) this.sync();
 
         const command = event.target.closest("[data-command]")?.dataset.command;
-        if (command && event.target.tagName !== "SELECT") {
+        if (command && event.target.closest("button[data-command]")) {
           event.preventDefault();
           document.execCommand(command, false, null);
           this.sync();
@@ -228,18 +253,36 @@
       });
       block.addEventListener("change", (event) => {
         if (event.target.matches("[data-image-file]")) this.uploadImage(block, event.target.files[0]);
-        if (event.target.dataset.command === "fontSize" && event.target.value) {
-          document.execCommand("fontSize", false, event.target.value);
-          event.target.value = "";
+        if (event.target.matches("[data-block-level]")) {
+          const oldText = block.querySelector(".be__text");
+          const heading = document.createElement(`h${event.target.value}`);
+          heading.className = "be__text";
+          heading.contentEditable = "true";
+          heading.dataset.placeholder = this.options.placeholder;
+          heading.innerHTML = oldText.innerHTML;
+          oldText.replaceWith(heading);
+          block.dataset.type = `h${event.target.value}`;
+          heading.focus();
           this.sync();
         }
+        if (["fontSize", "foreColor", "hiliteColor"].includes(event.target.dataset.command) && event.target.value) {
+          this.restoreSelection();
+          document.execCommand(event.target.dataset.command, false, event.target.value);
+          this.sync();
+          if (["foreColor", "hiliteColor"].includes(event.target.dataset.command)) {
+            block.querySelector(".be__inlinebar")?.classList.remove("be__inlinebar--locked");
+          } else {
+            event.target.value = "";
+          }
+        }
+        if (event.target.matches(".be__quote-align")) this.sync();
       });
       block.addEventListener("keydown", (event) => {
         if (event.key === "/" && this.isEmptyText(block)) {
           event.preventDefault();
           this.openMenu(block.querySelector(".be__body"), block, true);
         }
-        if (event.key === "Enter" && !event.shiftKey && ["paragraph", "h2", "h3", "quote"].includes(block.dataset.type)) {
+        if (event.key === "Enter" && !event.shiftKey && (["paragraph", "quote"].includes(block.dataset.type) || /^h[1-6]$/.test(block.dataset.type))) {
           event.preventDefault();
           this.addBlock("paragraph", "", true, block);
         }
@@ -306,7 +349,8 @@
     }
 
     loadUrl(block, type) {
-      const input = block.querySelector("input");
+      const input = block.querySelector('input[type="url"]');
+      if (!input) return;
       const url = input.value.trim();
       if (!this.safeUrl(url)) return input.setCustomValidity("Enter a valid http(s) URL"), input.reportValidity();
       input.setCustomValidity("");
@@ -378,10 +422,10 @@
 
     serializeBlock(block) {
       const type = block.dataset.type;
-      if (["paragraph", "h2", "h3", "quote"].includes(type)) {
+      if (["paragraph", "quote"].includes(type) || /^h[1-6]$/.test(type)) {
         const text = this.sanitizeInline(block.querySelector(".be__text")?.innerHTML || "");
-        if (type === "h2" || type === "h3") return { id: block.dataset.id, type: "header", data: { text, level: Number(type[1]) } };
-        if (type === "quote") return { id: block.dataset.id, type, data: { text, caption: "", alignment: "left" } };
+        if (/^h[1-6]$/.test(type)) return { id: block.dataset.id, type: "header", data: { text, level: Number(type[1]) } };
+        if (type === "quote") return { id: block.dataset.id, type, data: { text, caption: this.sanitizeInline(block.querySelector(".be__quote-caption")?.innerHTML || ""), alignment: block.querySelector(".be__quote-align")?.value || "left" } };
         return { id: block.dataset.id, type, data: { text } };
       }
       if (type === "list") {
@@ -392,6 +436,7 @@
         const img = block.querySelector("img");
         return { id: block.dataset.id, type: "image", data: { file: { url: img?.src || "" }, caption: block.querySelector("figcaption")?.innerHTML || "", withBorder: false, stretched: false, withBackground: false } };
       }
+      if (type === "delimiter") return { id: block.dataset.id, type: "delimiter", data: {} };
       const iframe = block.querySelector("iframe");
       const source = iframe?.src || "";
       return { id: block.dataset.id, type, data: { service: this.embedService(source), source, embed: source, width: 640, height: 360, caption: "" } };
@@ -413,6 +458,27 @@
     }
 
     isEmptyText(block) { return !(block.querySelector(".be__text")?.textContent || "").trim(); }
+    rememberSelection() {
+      const selection = global.getSelection();
+      if (selection?.rangeCount && this.root.contains(selection.anchorNode)) {
+        const range = selection.getRangeAt(0);
+        const origin = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+          ? range.commonAncestorContainer
+          : range.commonAncestorContainer.parentElement;
+        const editable = origin?.closest?.('[contenteditable="true"]');
+        if (editable) {
+          this.savedRange = range.cloneRange();
+          this.savedEditable = editable;
+        }
+      }
+    }
+    restoreSelection() {
+      if (!this.savedRange) return;
+      this.savedEditable?.focus({ preventScroll: true });
+      const selection = global.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(this.savedRange);
+    }
     handlePaste(event) {
       if (!event.target.closest(".be__text, figcaption")) return;
       event.preventDefault();
@@ -431,7 +497,7 @@
       const config = Object.assign({ allowLinks: true }, settings || {});
       const source = document.createElement("template");
       source.innerHTML = String(html);
-      const allowed = new Set(["B", "STRONG", "I", "EM", "U", "S", "DEL", "A", "BR", "CODE", "FONT"]);
+      const allowed = new Set(["B", "STRONG", "I", "EM", "U", "S", "DEL", "A", "BR", "CODE", "FONT", "SPAN", "MARK"]);
       const blocks = new Set(["P", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "LI"]);
       const discarded = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "IFRAME", "FRAME", "OBJECT", "EMBED", "SVG", "MATH", "META", "LINK", "BASE", "FORM", "INPUT", "BUTTON", "TEXTAREA", "SELECT", "TEMPLATE"]);
       const clean = (node) => {
@@ -456,6 +522,13 @@
         }
         if (node.tagName === "A" && !config.allowLinks) return fragment;
         if (node.tagName === "FONT" && /^[1-7]$/.test(node.getAttribute("size") || "")) element.setAttribute("size", node.getAttribute("size"));
+        if (node.tagName === "FONT" && this.safeColor(node.getAttribute("color"))) element.setAttribute("color", node.getAttribute("color"));
+        if ((node.tagName === "SPAN" || node.tagName === "MARK") && node.getAttribute("style")) {
+          const color = node.style.color;
+          const background = node.style.backgroundColor;
+          if (this.safeColor(color)) element.style.color = color;
+          if (this.safeColor(background)) element.style.backgroundColor = background;
+        }
         element.appendChild(fragment);
         return element;
       };
@@ -464,6 +537,9 @@
       return output.innerHTML
         .replace(/(?:<br>\s*){3,}/gi, "<br><br>")
         .replace(/(?:<br>\s*)+$/i, "");
+    }
+    safeColor(value) {
+      return Boolean(value && (/^#[0-9a-f]{3,8}$/i.test(value) || /^rgba?\([\d\s,.%]+\)$/i.test(value) || /^[a-z]{3,20}$/i.test(value)));
     }
     makeId() {
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-";
