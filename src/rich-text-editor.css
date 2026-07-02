@@ -5,13 +5,13 @@
 .be__brand { font-size:14px; font-weight:700; }
 .be__status { color:var(--muted); font-size:12px; }
 .be__canvas { min-height:380px; padding:38px 112px 70px; width:100%; }
-.be__block { border:1px solid transparent; border-radius:7px; display:grid; grid-template-columns:34px 1fr 72px; margin:3px -108px 3px -42px; padding:5px 3px; position:relative; }
+.be__block { border:1px solid transparent; border-radius:7px; display:grid; grid-template-columns:44px 1fr 72px; margin:3px -108px 3px -42px; padding:5px 3px; position:relative; }
 .be__block:hover,.be__block:focus-within { border-color:#dbe4ef; }
 .be__rail,.be__actions { align-items:flex-start; display:flex; opacity:0; transition:opacity .15s; }
 .be__block:hover .be__rail,.be__block:hover .be__actions,.be__block:focus-within .be__rail,.be__block:focus-within .be__actions { opacity:1; }
 .be__rail { flex-direction:column; }
 .be__actions { justify-content:flex-end; }
-.be__rail button,.be__actions button { background:transparent; border:0; border-radius:4px; color:#7b8798; cursor:pointer; height:28px; min-width:25px; padding:3px; }
+.be__rail button,.be__actions button { align-items:center; background:transparent; border:0; border-radius:4px; color:#7b8798; cursor:pointer; display:flex; font-size:24px; height:36px; justify-content:center; line-height:1; min-width:36px; padding:3px; }
 .be__rail button:hover,.be__actions button:hover { background:#edf2f7; color:#111827; }
 .be__rail [data-action="drag"] { cursor:grab; touch-action:none; }
 .be__rail [data-action="drag"]:active { cursor:grabbing; }
